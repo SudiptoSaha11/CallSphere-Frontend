@@ -52,7 +52,7 @@ const Room = () => {
   };
 
   useEffect(() => {
-    socketRef.current = io("http://localhost:5000", { transports: ["websocket"] });
+    socketRef.current = io("https://callsphere-backend.onrender.com", { transports: ["websocket"] });
 
     navigator.mediaDevices
       .getUserMedia({ video: videoConstraints, audio: true })
@@ -64,6 +64,31 @@ const Room = () => {
 
         socketRef.current.emit("join room", roomID);
 
+        function createPeer(userToSignal, callerID, stream) {
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream,
+    });
+    peer.on("signal", (signal) => {
+      socketRef.current.emit("sending signal", { userToSignal, callerID, signal });
+    });
+    return peer;
+  }
+
+  function addPeer(incomingSignal, callerID, stream) {
+    const peer = new Peer({
+      initiator: false,
+      trickle: false,
+      stream,
+    });
+    peer.on("signal", (signal) => {
+      socketRef.current.emit("returning signal", { signal, callerID });
+    });
+    peer.signal(incomingSignal);
+    return peer;
+  }
+  
         socketRef.current.on("all users", (users) => {
           const peersArr = [];
           users.forEach((userID) => {
@@ -108,30 +133,7 @@ const Room = () => {
     // eslint-disable-next-line
   }, []); // Empty dependency array - only run once on mount
 
-  function createPeer(userToSignal, callerID, stream) {
-    const peer = new Peer({
-      initiator: true,
-      trickle: false,
-      stream,
-    });
-    peer.on("signal", (signal) => {
-      socketRef.current.emit("sending signal", { userToSignal, callerID, signal });
-    });
-    return peer;
-  }
-
-  function addPeer(incomingSignal, callerID, stream) {
-    const peer = new Peer({
-      initiator: false,
-      trickle: false,
-      stream,
-    });
-    peer.on("signal", (signal) => {
-      socketRef.current.emit("returning signal", { signal, callerID });
-    });
-    peer.signal(incomingSignal);
-    return peer;
-  }
+  
 
   const toggleVideo = () => {
     if (stream) {
